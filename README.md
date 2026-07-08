@@ -8,6 +8,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/mcp2xiaozhi.svg)](https://pypi.org/project/mcp2xiaozhi/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/StanleyChanH/MCP2Xiaozhi/actions/workflows/ci.yml/badge.svg)](https://github.com/StanleyChanH/MCP2Xiaozhi/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-mkdocs__material-blue)](https://stanleychanh.github.io/MCP2Xiaozhi/)
 
 `mcp2xiaozhi` is a general-purpose bridge that connects **any** [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server to a Xiaozhi server. The Xiaozhi server acts as an MCP *client* over a WebSocket: it sends JSON-RPC tool calls as text frames and expects JSON-RPC replies. This package receives those frames and relays them — at the protocol level — to your MCP server, wherever it runs and whatever transport it speaks.
 

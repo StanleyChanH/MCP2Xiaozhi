@@ -8,6 +8,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/mcp2xiaozhi.svg)](https://pypi.org/project/mcp2xiaozhi/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/StanleyChanH/MCP2Xiaozhi/actions/workflows/ci.yml/badge.svg)](https://github.com/StanleyChanH/MCP2Xiaozhi/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-mkdocs__material-blue)](https://stanleychanh.github.io/MCP2Xiaozhi/)
 
 `mcp2xiaozhi` 是一个通用桥接器，把**任意** [模型上下文协议](https://modelcontextprotocol.io/)（MCP）服务端连接到 Xiaozhi 服务端。Xiaozhi 服务端通过 WebSocket 充当 MCP *客户端*：以文本帧发送 JSON-RPC 工具调用，并期望 JSON-RPC 回复。本包接收这些帧，并在**协议层**将它们中继到你的 MCP 服务端——无论它运行在哪里、使用何种传输类型。
 
