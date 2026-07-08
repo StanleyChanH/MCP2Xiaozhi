@@ -1,0 +1,82 @@
+site_name: mcp2xiaozhi
+site_description: Bridge any MCP server (stdio/SSE/StreamableHTTP) to a Xiaozhi server over WebSocket.
+site_url: https://stanleychanh.github.io/MCP2Xiaozhi/
+repo_url: https://github.com/StanleyChanH/MCP2Xiaozhi
+repo_name: StanleyChanH/MCP2Xiaozhi
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/connection
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Quick Start: quick-start.md
+  - Configuration: configuration.md
+  - Transports: transports.md
+  - CLI: cli.md
+  - Programmatic API: api.md
+  - Development: development.md
+  - 中文文档: zh-cn.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search:
+      lang:
+        - en
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/StanleyChanH/MCP2Xiaozhi
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/mcp2xiaozhi/
+
+copyright: Copyright &copy; 2026 StanleyChanH
