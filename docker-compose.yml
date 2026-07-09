@@ -1,0 +1,24 @@
+# Persist the mcp2xiaozhi bridge as a Docker service.
+# https://github.com/StanleyChanH/MCP2Xiaozhi
+#
+# 1. Place mcp_config.json next to this file.
+# 2. Create a .env file with:
+#      MCP_ENDPOINT=wss://api.xiaozhi.me/mcp/?token=...
+#    (and MCP_ENDPOINT_<NAME> per server if running several).
+# 3. docker compose up -d --build
+services:
+  mcp2xiaozhi:
+    build: .
+    image: mcp2xiaozhi:latest
+    container_name: mcp2xiaozhi
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MCP_ENDPOINT: ${MCP_ENDPOINT}
+    volumes:
+      - ./mcp_config.json:/app/mcp_config.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

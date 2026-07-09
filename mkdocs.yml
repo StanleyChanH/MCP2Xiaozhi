@@ -42,6 +42,7 @@ nav:
   - Quick Start: quick-start.md
   - Configuration: configuration.md
   - Transports: transports.md
+  - Deployment: deployment.md
   - CLI: cli.md
   - Programmatic API: api.md
   - Development: development.md

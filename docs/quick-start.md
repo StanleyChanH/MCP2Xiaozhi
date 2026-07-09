@@ -98,3 +98,9 @@ Xiaozhi LLM decides to call a tool
 
 The bridge never interprets tool semantics — it only validates and forwards
 JSON-RPC, so it works with any MCP-compliant server and any tool.
+
+!!! note "Keep it running"
+    The bridge is a **long-lived relay** — closing the terminal stops it, and
+    the host running it must stay online for Xiaozhi to reach your tools. For a
+    persistent setup (systemd / Docker / Windows service), see
+    [Deployment](deployment.md).

@@ -201,6 +201,29 @@ manager = ServerManager.from_config(load_config())
 asyncio.run(manager.run())
 ```
 
+## Deployment
+
+The bridge is a **long-lived relay** — the host running it must stay online,
+because the Xiaozhi server never connects to your MCP server directly. For
+remote SSE/HTTP MCP servers you can deploy it to any always-on machine (VPS,
+NAS, Raspberry Pi, container) and turn your laptop off.
+
+Quick options:
+
+```bash
+# Docker (any platform) — the repo ships Dockerfile + docker-compose.yml
+docker compose up -d --build
+
+# Linux systemd — auto-start on boot, restart on crash
+sudo systemctl enable --now mcp2xiaozhi
+
+# Windows — NSSM wraps it as a native service
+nssm install mcp2xiaozhi mcp2xiaozhi.exe
+```
+
+➡️ Full guide (config & secrets, multi-server, logs, upgrade): the
+[Deployment docs](https://stanleychanh.github.io/MCP2Xiaozhi/deployment/).
+
 ## How it differs from the official `mcp-calculator` demo
 
 | | `mcp-calculator` demo | `mcp2xiaozhi` |
