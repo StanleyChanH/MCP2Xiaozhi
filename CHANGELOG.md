@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-10
+
 ### Added
 - **Tool filtering** — optional per-server `tools` allow/deny lists. Disallowed tools are stripped from outbound `tools/list` responses, and inbound `tools/call` requests for them are answered with a JSON-RPC error (`-32000`) and never forwarded to the MCP server.
 - **Observability** — optional `/health` and `/metrics` (Prometheus-format) HTTP server via `--metrics-port`. Counters for messages, reconnects, malformed frames, blocked tool calls, plus a `connected` gauge. Binds to loopback (`127.0.0.1`) by default.
@@ -34,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UTF-8 console handling on Windows; graceful `SIGINT`/`SIGTERM` shutdown.
 - Test suite, ruff + mypy config, and CI workflow.
 
-[Unreleased]: https://github.com/StanleyChanH/MCP2Xiaozhi/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/StanleyChanH/MCP2Xiaozhi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/StanleyChanH/MCP2Xiaozhi/releases/tag/v0.2.0
 [0.1.0]: https://github.com/StanleyChanH/MCP2Xiaozhi/releases/tag/v0.1.0
