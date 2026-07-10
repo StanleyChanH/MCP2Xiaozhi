@@ -201,6 +201,25 @@ manager = ServerManager.from_config(load_config())
 asyncio.run(manager.run())
 ```
 
+## 部署
+
+桥是一个**长驻中继进程**——运行它的机器必须保持在线，因为 Xiaozhi 服务端不会直接连接你的 MCP 服务端。对于远程 SSE/HTTP MCP 服务端，你可以把桥部署到任意一台 7×24 在线的机器（VPS、NAS、树莓派、容器），然后关掉笔记本。
+
+快速选项：
+
+```bash
+# Docker（全平台）—— 仓库自带 Dockerfile + docker-compose.yml
+docker compose up -d --build
+
+# Linux systemd —— 开机自启，崩溃重启
+sudo systemctl enable --now mcp2xiaozhi
+
+# Windows —— NSSM 把它注册为原生服务
+nssm install mcp2xiaozhi mcp2xiaozhi.exe
+```
+
+➡️ 完整指南（配置与密钥、多服务、日志、升级）：[部署文档](https://stanleychanh.github.io/MCP2Xiaozhi/deployment/)。
+
 ## 与官方 `mcp-calculator` 演示的区别
 
 | | `mcp-calculator` 演示 | `mcp2xiaozhi` |
