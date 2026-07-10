@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -14,6 +15,7 @@ from mcp.types import JSONRPCMessage
 
 from mcp2xiaozhi.bridge import McpBridge, _truncate, _ws_iter
 from mcp2xiaozhi.config import ServerConfig
+from mcp2xiaozhi.tool_filter import ToolFilter
 
 from .conftest import FakeWs
 
@@ -240,3 +242,95 @@ async def test_request_stop_sets_event():
     assert not bridge._stop_event.is_set()
     bridge.request_stop()
     assert bridge._stop_event.is_set()
+
+
+# --------------------------------------------------------------------------- #
+# Tool filtering through the pumps (end-to-end, security-critical path)
+# --------------------------------------------------------------------------- #
+async def test_pump_ws_to_mcp_blocks_denied_tool_call():
+    """A denied tools/call is answered on the ws, NOT forwarded, and counted."""
+    bridge = _make_bridge()
+    bridge.tool_filter = ToolFilter(deny=["power"])
+    send, recv = create_memory_object_stream(max_buffer_size=64)
+    ws = FakeWs(
+        [
+            '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"power","arguments":{}}}',
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"add","arguments":{}}}',
+        ]
+    )
+    scope = anyio.CancelScope()
+    await bridge._pump_ws_to_mcp(ws, send, scope)
+    await send.aclose()
+
+    forwarded = []
+    while True:
+        try:
+            forwarded.append(recv.receive_nowait())
+        except (anyio.WouldBlock, anyio.EndOfStream):
+            break
+
+    # Only the allowed "add" reached the MCP server.
+    assert len(forwarded) == 1
+    assert forwarded[0].message.root.params["name"] == "add"
+    # The denied "power" got a JSON-RPC error back on the WebSocket.
+    assert len(ws.sent) == 1
+    err = json.loads(ws.sent[0])
+    assert err["id"] == 1
+    assert err["error"]["code"] == -32000
+    # Metric wiring: blocked counted, allowed forwarded.
+    assert bridge.metrics.tool_calls_blocked == 1
+    assert bridge.metrics.ws_to_mcp == 1
+
+
+async def test_pump_mcp_to_ws_filters_tools_list_response():
+    """A tools/list response has disallowed tools stripped before it hits the ws."""
+    bridge = _make_bridge()
+    bridge.tool_filter = ToolFilter(allow=["add", "sqrt"])
+    send, recv = create_memory_object_stream(max_buffer_size=64)
+    msg = JSONRPCMessage.model_validate(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"tools": [{"name": "add"}, {"name": "power"}, {"name": "sqrt"}]},
+        }
+    )
+    await send.send(SessionMessage(message=msg))
+    await send.aclose()
+    ws = FakeWs([])
+    scope = anyio.CancelScope()
+    await bridge._pump_mcp_to_ws(recv, ws, scope)
+    assert len(ws.sent) == 1
+    payload = json.loads(ws.sent[0])
+    assert [t["name"] for t in payload["result"]["tools"]] == ["add", "sqrt"]
+    assert bridge.metrics.mcp_to_ws == 1
+
+
+# --------------------------------------------------------------------------- #
+# Metrics wiring through the pumps
+# --------------------------------------------------------------------------- #
+async def test_pump_ws_to_mcp_increments_metrics_counters():
+    bridge = _make_bridge()
+    send, _recv = create_memory_object_stream(max_buffer_size=64)
+    ws = FakeWs(
+        [
+            '{"jsonrpc":"2.0","id":1,"method":"ping"}',
+            "not-json",
+            '{"jsonrpc":"2.0","id":2,"method":"ping"}',
+        ]
+    )
+    scope = anyio.CancelScope()
+    await bridge._pump_ws_to_mcp(ws, send, scope)
+    assert bridge.metrics.ws_to_mcp == 2
+    assert bridge.metrics.malformed_frames == 1
+
+
+async def test_run_once_records_session_start_and_clears_connected():
+    ws = FakeWs(["ping"], keep_open=True)
+    fake_transport = _FakeTransport(incoming=[])
+    bridge = _make_bridge()
+    bridge.transport = fake_transport  # type: ignore[assignment]
+    bridge.ws = _FakeWsClient(ws)  # type: ignore[assignment]
+    await bridge._run_once()
+    assert bridge.metrics.session_starts == 1
+    # `connected` is set inside the async with and cleared in finally on exit.
+    assert bridge.metrics.connected is False

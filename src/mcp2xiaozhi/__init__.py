@@ -13,6 +13,7 @@ from .config import (
     DEFAULT_CONFIG_FILENAME,
     McpConfig,
     ServerConfig,
+    ToolFilterConfig,
     TransportType,
     find_config_path,
     get_global_endpoint,
@@ -29,6 +30,8 @@ from .exceptions import (
 )
 from .logging_setup import get_logger, setup_logging
 from .manager import ServerManager
+from .metrics import BridgeMetrics, start_metrics_server
+from .tool_filter import ToolFilter
 from .transports import (
     McpTransport,
     SseTransport,
@@ -42,6 +45,7 @@ from .ws import WsOptions, XiaozhiWsClient
 __all__ = [
     "DEFAULT_CONFIG_FILENAME",
     "BridgeError",
+    "BridgeMetrics",
     "ConfigError",
     "EndpointMissingError",
     "Mcp2XiaozhiError",
@@ -53,6 +57,8 @@ __all__ = [
     "SseTransport",
     "StdioTransport",
     "StreamableHttpTransport",
+    "ToolFilter",
+    "ToolFilterConfig",
     "TransportError",
     "TransportType",
     "WebSocketError",
@@ -67,4 +73,5 @@ __all__ = [
     "register_transport",
     "resolve_endpoint",
     "setup_logging",
+    "start_metrics_server",
 ]

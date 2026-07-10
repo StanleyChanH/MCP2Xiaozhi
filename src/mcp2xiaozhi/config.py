@@ -72,6 +72,21 @@ class TransportType(str, Enum):
         return str(self.value)
 
 
+class ToolFilterConfig(BaseModel):
+    """Optional ``tools`` allow/deny lists for a server (see ToolFilter)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    allow: list[str] = Field(
+        default_factory=list,
+        description="If non-empty, only these tool names are exposed to Xiaozhi.",
+    )
+    deny: list[str] = Field(
+        default_factory=list,
+        description="These tool names are never exposed to Xiaozhi.",
+    )
+
+
 class ServerConfig(BaseModel):
     """A single MCP server definition."""
 
@@ -103,6 +118,10 @@ class ServerConfig(BaseModel):
         default=None,
         description="Xiaozhi WebSocket endpoint for this server. "
         "Overrides the global MCP_ENDPOINT when running multiple servers.",
+    )
+    tools: ToolFilterConfig = Field(
+        default_factory=ToolFilterConfig,
+        description="Optional tool allow/deny filter: {\"allow\": [...], \"deny\": [...]}.",
     )
 
     @field_validator("type", mode="before")
@@ -281,6 +300,7 @@ __all__ = [
     "DEFAULT_CONFIG_FILENAME",
     "McpConfig",
     "ServerConfig",
+    "ToolFilterConfig",
     "TransportType",
     "find_config_path",
     "get_global_endpoint",

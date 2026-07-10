@@ -26,9 +26,18 @@ logger = get_logger("manager")
 class ServerManager:
     """Run and supervise multiple MCP<->Xiaozhi bridges."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        metrics_host: str = "127.0.0.1",
+        metrics_port: int | None = None,
+    ) -> None:
         self._bridges: list[McpBridge] = []
         self._tasks: list[asyncio.Task] = []
+        self._metrics_host = metrics_host
+        self._metrics_port = metrics_port
+        self._metrics_server: asyncio.Server | None = None
+        self._metrics_task: asyncio.Task[None] | None = None
 
     @property
     def bridges(self) -> list[McpBridge]:
@@ -38,12 +47,18 @@ class ServerManager:
         self._bridges.append(bridge)
 
     @classmethod
-    def from_config(cls, config: McpConfig) -> ServerManager:
+    def from_config(
+        cls,
+        config: McpConfig,
+        *,
+        metrics_host: str = "127.0.0.1",
+        metrics_port: int | None = None,
+    ) -> ServerManager:
         """Build a manager with one bridge per enabled server in *config*.
 
         Servers with no resolvable endpoint are skipped with a warning.
         """
-        manager = cls()
+        manager = cls(metrics_host=metrics_host, metrics_port=metrics_port)
         global_endpoint = get_global_endpoint()
         enabled = config.enabled_servers
         if not enabled:
@@ -85,6 +100,8 @@ class ServerManager:
             logger.error("No bridges to run; nothing to do.")
             return
 
+        await self._start_metrics()
+
         tasks = [asyncio.create_task(b.run(), name=f"bridge:{b.name}") for b in self._bridges]
         self._tasks = tasks
         try:
@@ -94,8 +111,50 @@ class ServerManager:
         finally:
             await self.stop()
 
+    async def _start_metrics(self) -> None:
+        """Start the /health and /metrics HTTP server if a port was configured."""
+        if self._metrics_port is None or not self._bridges:
+            return
+        from .metrics import start_metrics_server
+
+        collectors = [b.metrics for b in self._bridges]
+        try:
+            self._metrics_server = await start_metrics_server(
+                self._metrics_host, self._metrics_port, collectors
+            )
+        except OSError as exc:
+            # The metrics endpoint is optional observability — a bind failure
+            # (port already in use, privileged port) must not take down bridges.
+            logger.warning(
+                "metrics server failed to start on %s:%s (%s); continuing without metrics",
+                self._metrics_host,
+                self._metrics_port,
+                exc,
+            )
+            return
+        self._metrics_task = asyncio.create_task(
+            self._metrics_server.serve_forever(), name="metrics-server"
+        )
+        logger.info(
+            "metrics server listening on http://%s:%s/health and /metrics",
+            self._metrics_host,
+            self._metrics_port,
+        )
+
     async def stop(self) -> None:
         """Signal all bridges to stop and cancel their tasks."""
+        if self._metrics_server is not None:
+            self._metrics_server.close()
+            # Drain in-flight handlers (up to a bound) before nulling the server,
+            # so a host application embedding ServerManager sees clean teardown.
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self._metrics_server.wait_closed(), timeout=2.0)
+            self._metrics_server = None
+        if self._metrics_task is not None:
+            self._metrics_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._metrics_task
+            self._metrics_task = None
         for bridge in self._bridges:
             bridge.request_stop()
         for task in self._tasks:

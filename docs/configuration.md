@@ -35,7 +35,10 @@ Xiaozhi's official `mcp-calculator` demo.
       "sse_read_timeout": 300.0,    // long-lived read timeout (s)
 
       // optional per-server Xiaozhi endpoint
-      "endpoint": "wss://api.example.com/mcp/<token>"
+      "endpoint": "wss://api.example.com/mcp/<token>",
+
+      // optional: restrict which tools Xiaozhi can see/call
+      "tools": {"allow": ["add", "sqrt"], "deny": ["power"]}
     }
   }
 }
@@ -55,6 +58,29 @@ Xiaozhi's official `mcp-calculator` demo.
 | `timeout` | sse / streamablehttp | Connect timeout in seconds. |
 | `sse_read_timeout` | sse / streamablehttp | Long-lived read timeout in seconds. |
 | `endpoint` | all | Xiaozhi WebSocket endpoint for this server. |
+| `tools` | all | Optional tool filter `{"allow": [...], "deny": [...]}`. See [Tool filtering](#tool-filtering). |
+
+## Tool filtering
+
+Restrict which tools Xiaozhi can see and call with the optional `tools` field:
+
+```json
+{
+  "type": "stdio",
+  "command": "python",
+  "tools": {"allow": ["add", "sqrt"], "deny": ["power"]}
+}
+```
+
+- **`allow`** — if non-empty, only these tool names are exposed; everything else is hidden.
+- **`deny`** — these tool names are never exposed (takes precedence over `allow`).
+
+Filtering happens in two places, so a blocked tool never reaches the MCP server:
+
+1. **outbound `tools/list` responses** — disallowed tools are stripped, so Xiaozhi never learns they exist;
+2. **inbound `tools/call` requests** — a call to a blocked tool is short-circuited with a JSON-RPC error (`-32000`) back to Xiaozhi and never forwarded.
+
+Leave both empty (or omit `tools`) to expose everything (the default).
 
 ## Endpoint resolution
 

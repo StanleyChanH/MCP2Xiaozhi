@@ -21,10 +21,18 @@ from typing import TYPE_CHECKING, Any
 
 import anyio
 from mcp.shared.message import SessionMessage
-from mcp.types import JSONRPCMessage
+from mcp.types import (
+    ErrorData,
+    JSONRPCError,
+    JSONRPCMessage,
+    JSONRPCRequest,
+    JSONRPCResponse,
+)
 
 from .exceptions import BridgeError, TransportError, WebSocketError
 from .logging_setup import get_logger
+from .metrics import BridgeMetrics
+from .tool_filter import ToolFilter
 from .transports import McpTransport, create_transport
 from .ws import XiaozhiWsClient
 
@@ -60,6 +68,8 @@ class McpBridge:
         self._max_backoff = max_backoff
         self._reconnect_delay = reconnect_delay
         self._stop_event = asyncio.Event()
+        self.metrics = BridgeMetrics(name=self.name, transport=self.transport.kind)
+        self.tool_filter = ToolFilter.from_config(server.tools)
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -69,7 +79,11 @@ class McpBridge:
         logger.info("[%s] bridge starting (%s <-> ws)", self.name, self.transport.kind)
         attempt = 0
         backoff = self._initial_backoff
+        first_session = True
         while not self._stop_event.is_set():
+            if not first_session:
+                self.metrics.reconnects += 1
+            first_session = False
             try:
                 await self._run_once()
             except asyncio.CancelledError:
@@ -134,13 +148,21 @@ class McpBridge:
     # ------------------------------------------------------------------ #
     async def _run_once(self) -> None:
         """One full session: open transport + WS, pump both directions."""
-        async with (
-            self.transport.session() as (read, write),
-            self.ws.connect() as ws,
-            anyio.create_task_group() as tg,
-        ):
-            tg.start_soon(self._pump_ws_to_mcp, ws, write, tg.cancel_scope)
-            tg.start_soon(self._pump_mcp_to_ws, read, ws, tg.cancel_scope)
+        try:
+            async with (
+                self.transport.session() as (read, write),
+                self.ws.connect() as ws,
+                anyio.create_task_group() as tg,
+            ):
+                # Only count a session once both sides are actually open, so a
+                # failed connect (MCP unreachable / WS handshake fail) is not
+                # recorded as a session that never existed.
+                self.metrics.session_starts += 1
+                self.metrics.connected = True
+                tg.start_soon(self._pump_ws_to_mcp, ws, write, tg.cancel_scope)
+                tg.start_soon(self._pump_mcp_to_ws, read, ws, tg.cancel_scope)
+        finally:
+            self.metrics.connected = False
 
     async def _pump_ws_to_mcp(
         self,
@@ -162,6 +184,7 @@ class McpBridge:
                 try:
                     message = JSONRPCMessage.model_validate_json(raw)
                 except Exception as exc:
+                    self.metrics.malformed_frames += 1
                     logger.warning(
                         "[%s] dropping malformed WebSocket frame: %s (%s)",
                         self.name,
@@ -169,7 +192,19 @@ class McpBridge:
                         exc,
                     )
                     continue
+                blocked = _blocked_call(message, self.tool_filter)
+                if blocked is not None:
+                    tool_name, req_id = blocked
+                    logger.warning(
+                        "[%s] blocking tools/call for disallowed tool '%s'",
+                        self.name,
+                        tool_name,
+                    )
+                    self.metrics.tool_calls_blocked += 1
+                    await ws.send(_error_response_json(req_id, tool_name))
+                    continue
                 await write.send(SessionMessage(message=message))
+                self.metrics.ws_to_mcp += 1
         except Exception as exc:
             if not isinstance(exc, (asyncio.CancelledError,)):
                 logger.error("[%s] ws->mcp pump failed: %s", self.name, exc)
@@ -207,9 +242,15 @@ class McpBridge:
                     ) from session_message
                 # SDK transports yield SessionMessage wrappers; unwrap to JSONRPCMessage.
                 message = session_message.message
+                removed = _filter_tools_list(message, self.tool_filter)
+                if removed:
+                    logger.info(
+                        "[%s] tools/list: hid %s tool(s) per filter", self.name, removed
+                    )
                 payload = message.model_dump_json(by_alias=True, exclude_none=True)
                 logger.debug("[%s] mcp >> ws: %s", self.name, _truncate(payload))
                 await ws.send(payload)
+                self.metrics.mcp_to_ws += 1
         except Exception as exc:
             if not isinstance(exc, (asyncio.CancelledError,)):
                 logger.error("[%s] mcp->ws pump failed: %s", self.name, exc)
@@ -265,6 +306,69 @@ def _unwrap_exc(exc: BaseException) -> BaseException:
 
 def _truncate(text: str, limit: int = 200) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _blocked_call(
+    message: JSONRPCMessage, tool_filter: ToolFilter
+) -> tuple[str, str | int] | None:
+    """If *message* is a tools/call for a denied tool, return ``(name, request_id)``."""
+    if not tool_filter.active:
+        return None
+    root = message.root
+    if not isinstance(root, JSONRPCRequest) or root.method != "tools/call":
+        return None
+    params = root.params
+    if not isinstance(params, dict):
+        return None
+    name = params.get("name")
+    if not isinstance(name, str) or tool_filter.allowed(name):
+        return None
+    return name, root.id
+
+
+def _error_response_json(request_id: str | int, tool_name: str) -> str:
+    """Build a JSON-RPC error response for a blocked tools/call."""
+    error = JSONRPCError(
+        jsonrpc="2.0",
+        id=request_id,
+        error=ErrorData(
+            code=-32000,
+            message=f"Tool '{tool_name}' is not allowed by the bridge tool filter.",
+        ),
+    )
+    return error.model_dump_json(by_alias=True, exclude_none=True)
+
+
+def _filter_tools_list(message: JSONRPCMessage, tool_filter: ToolFilter) -> int:
+    """If *message* is a tools/list response, strip denied tools in place.
+
+    Returns the number of tools removed. The MCP SDK models the response
+    ``result`` as a plain ``dict[str, Any]``, so we mutate ``result["tools"]``
+    directly.
+    """
+    if not tool_filter.active:
+        return 0
+    root = message.root
+    if not isinstance(root, JSONRPCResponse):
+        return 0
+    result = root.result
+    if not isinstance(result, dict):
+        return 0
+    tools = result.get("tools")
+    if not isinstance(tools, list):
+        return 0
+    kept: list[Any] = []
+    removed = 0
+    for tool in tools:
+        name = (
+            tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
+        )
+        if isinstance(name, str) and tool_filter.allowed(name):
+            kept.append(tool)
+        else:
+            removed += 1
+    result["tools"] = kept
+    return removed
 
 
 __all__ = ["McpBridge"]

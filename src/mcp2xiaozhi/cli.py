@@ -67,6 +67,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--endpoint",
         help="Override the Xiaozhi WebSocket endpoint for this run.",
     )
+    run_p.add_argument(
+        "--metrics-port",
+        type=int,
+        default=None,
+        help="Enable a /health and /metrics HTTP server on this port (Prometheus-compatible).",
+    )
+    run_p.add_argument(
+        "--metrics-host",
+        default="127.0.0.1",
+        help="Bind address for the metrics server (default: 127.0.0.1; pass 0.0.0.0 to expose to the network).",
+    )
 
     sub.add_parser("list", help="List configured servers and exit.")
     sub.add_parser("version", help="Print the version and exit.")
@@ -138,7 +149,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
             return 2
         os.environ["MCP_ENDPOINT"] = args.endpoint
 
-    manager = ServerManager.from_config(run_config)
+    manager = ServerManager.from_config(
+        run_config,
+        metrics_host=args.metrics_host,
+        metrics_port=args.metrics_port,
+    )
     if not manager.bridges:
         print(
             "error: no bridges could be created (check endpoints / config).",
@@ -156,12 +171,17 @@ def _single_server_config(name: str, config: McpConfig) -> McpConfig:
 
 
 def _run_until_signal(manager: ServerManager) -> int:
-    asyncio.run(_arun_with_signals(manager))
-    return 0
+    ok = asyncio.run(_arun_with_signals(manager))
+    return 0 if ok else 1
 
 
-async def _arun_with_signals(manager: ServerManager) -> None:
-    """Run the manager until a stop signal arrives or all bridges finish."""
+async def _arun_with_signals(manager: ServerManager) -> bool:
+    """Run the manager until a stop signal arrives or all bridges finish.
+
+    Returns True if the manager ran and stopped cleanly, False if it failed
+    (e.g. a startup error escaped ``manager.run()``). The caller maps a False
+    result to a non-zero exit code so failures aren't silently masked.
+    """
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
 
@@ -177,10 +197,20 @@ async def _arun_with_signals(manager: ServerManager) -> None:
 
     run_task = asyncio.create_task(manager.run(), name="manager-run")
     stop_task = asyncio.create_task(stop.wait(), name="signal-stop")
+    failed = False
     try:
         await asyncio.wait({run_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
     finally:
-        if not run_task.done():
+        # Observe a startup/runtime failure that escaped manager.run() (e.g.
+        # the metrics port was already in use but _start_metrics could not catch
+        # it). Without this, run_task would be done-with-exception and the guard
+        # below would skip it, silently exiting 0.
+        if run_task.done() and not run_task.cancelled():
+            exc = run_task.exception()
+            if exc is not None and not isinstance(exc, asyncio.CancelledError):
+                logger.error("manager.run() failed: %s", exc)
+                failed = True
+        elif not run_task.done():
             await manager.stop()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await run_task
@@ -189,6 +219,7 @@ async def _arun_with_signals(manager: ServerManager) -> None:
         for sig, prev in installed:
             with contextlib.suppress(OSError, ValueError):
                 signal.signal(sig, prev)
+    return not failed
 
 
 def main(argv: Sequence[str] | None = None) -> int:

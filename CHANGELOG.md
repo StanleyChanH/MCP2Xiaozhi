@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Tool filtering** — optional per-server `tools` allow/deny lists. Disallowed tools are stripped from outbound `tools/list` responses, and inbound `tools/call` requests for them are answered with a JSON-RPC error (`-32000`) and never forwarded to the MCP server.
+- **Observability** — optional `/health` and `/metrics` (Prometheus-format) HTTP server via `--metrics-port`. Counters for messages, reconnects, malformed frames, blocked tool calls, plus a `connected` gauge. Binds to loopback (`127.0.0.1`) by default.
+- **Token-redaction log filter** — the Xiaozhi JWT in the WebSocket endpoint is scrubbed from logs at every level, including third-party (e.g. `websockets`) DEBUG output.
+
+### Changed
+- A failed metrics-server bind (port in use) logs a warning and continues without metrics instead of taking down the bridges.
+- The CLI now exits non-zero when `manager.run()` fails to start, instead of silently exiting 0.
+- `/health` aggregate `status` reflects whether any bridge is connected (`ok` / `degraded`); the metrics HTTP server only accepts `GET`/`HEAD`, emits correct reason phrases, and `HEAD` carries no body.
+
+### Fixed
+- `session_starts` counter only increments once a session actually opens (not on failed connection attempts).
+
 ## [0.1.0] - 2026-07-08
 
 ### Added

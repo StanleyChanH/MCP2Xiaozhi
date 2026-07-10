@@ -25,6 +25,8 @@ Options:
 |------|-------------|
 | `--all` | Run all enabled servers (default when no name is given). |
 | `--endpoint URL` | Override the Xiaozhi endpoint. Single-server runs only. |
+| `--metrics-port PORT` | Enable a `/health` and `/metrics` HTTP server (Prometheus-compatible) on this port. Off by default. |
+| `--metrics-host HOST` | Bind address for the metrics server (default `127.0.0.1`; pass `0.0.0.0` to expose to the network). |
 
 The bridge reconnects with exponential backoff until interrupted (`Ctrl+C` /
 `SIGTERM`).

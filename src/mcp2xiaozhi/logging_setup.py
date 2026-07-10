@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import re
 import sys
 from typing import Literal
 
@@ -20,14 +21,29 @@ _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 _configured = False
 
 
-class _ExcludeNoise(logging.Filter):
-    """Drop noisy third-party debug logs unless the user explicitly asked for DEBUG."""
+# Matches `token=` (case-insensitive) followed by the value up to the next
+# delimiter. Covers the JWT in Xiaozhi WebSocket URLs *and* any accidental
+# header logging, e.g. websockets' DEBUG request-line.
+_TOKEN_RE = re.compile(r"(?i)(token=)[^&\s\"'<>]+")
 
-    _NOISY = ("httpx", "httpcore", "websockets.protocol", "mcp")
+
+class _RedactTokenFilter(logging.Filter):
+    """Redact ``token=...`` from any log record before it is emitted.
+
+    The ``websockets`` library, at DEBUG level, prints the full request line
+    (including the ``?token=`` query string) of the Xiaozhi endpoint. This
+    filter sits on the handler so that even at DEBUG level the JWT never lands
+    in the logs.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if record.levelno < logging.INFO:
+        try:
+            msg = record.getMessage()
+        except Exception:  # logging must never raise
             return True
+        if _TOKEN_RE.search(msg):
+            record.msg = _TOKEN_RE.sub(r"\1<redacted>", msg)
+            record.args = None
         return True
 
 
@@ -54,7 +70,7 @@ def setup_logging(level: LogLevel | str = "INFO", *, force: bool = False) -> Non
 
     handler = logging.StreamHandler(stream=sys.stderr)
     handler.setFormatter(logging.Formatter(_LOG_FORMAT, _DATE_FORMAT))
-    handler.addFilter(_ExcludeNoise())
+    handler.addFilter(_RedactTokenFilter())
 
     root = logging.getLogger()
     root.handlers.clear()
