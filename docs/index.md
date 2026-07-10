@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="mcp2xiaozhi — connecting AI protocols to open-source hardware" width="100%">
+</p>
+
 # mcp2xiaozhi
 
 > Bridge any MCP server (stdio / SSE / StreamableHTTP) to a [Xiaozhi](https://github.com/78/xiaozhi-esp32-server) server over WebSocket.

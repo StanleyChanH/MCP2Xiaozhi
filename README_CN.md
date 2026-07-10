@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/banner.png" alt="mcp2xiaozhi — 连接 AI 协议与开源硬件" width="100%">
+</p>
+
 # mcp2xiaozhi
 
 [English](README.md) | [中文](README_CN.md)
