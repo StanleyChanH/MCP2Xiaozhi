@@ -224,17 +224,6 @@ nssm install mcp2xiaozhi mcp2xiaozhi.exe
 ➡️ Full guide (config & secrets, multi-server, logs, upgrade): the
 [Deployment docs](https://stanleychanh.github.io/MCP2Xiaozhi/deployment/).
 
-## How it differs from the official `mcp-calculator` demo
-
-| | `mcp-calculator` demo | `mcp2xiaozhi` |
-|---|---|---|
-| Transports | stdio directly; sse/http via `mcp-proxy` subprocess | All three native via the `mcp` SDK |
-| Framing | Byte-pipe passthrough | Protocol-level: parse → validate → re-serialize (`SessionMessage` aware) |
-| Packaging | Single script | PyPI package, CLI, src layout |
-| Reconnect | Per-server backoff | Per-bridge backoff with jitter + clean/abnormal close distinction |
-| Multi-server | All share one endpoint | Per-server endpoints with conflict warnings |
-| Error handling | Raises + reconnects | Malformed frames dropped; structured exception-group unwrapping |
-
 ## Development
 
 ```bash

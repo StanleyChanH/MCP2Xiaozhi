@@ -120,16 +120,6 @@ commands:
   version            打印版本
 ```
 
-## 与官方 `mcp-calculator` 演示的区别
-
-| | `mcp-calculator` 演示 | `mcp2xiaozhi` |
-|---|---|---|
-| 传输 | stdio 直接；sse/http 经 `mcp-proxy` 子进程 | 三种全部通过 `mcp` SDK 原生支持 |
-| 帧处理 | 字节管道透传 | 协议级：解析 → 校验 → 重新序列化（感知 `SessionMessage`） |
-| 打包 | 单个脚本 | PyPI 包，CLI，src 布局 |
-| 重连 | 每服务端退避 | 每桥退避带抖动 + 区分正常/异常关闭 |
-| 错误处理 | 抛异常 + 重连 | 丢弃畸形帧；结构化异常组解包 |
-
 ## 许可证
 
 MIT — 详见 [LICENSE](https://github.com/StanleyChanH/MCP2Xiaozhi/blob/main/LICENSE)。

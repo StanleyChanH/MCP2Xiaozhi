@@ -220,17 +220,6 @@ nssm install mcp2xiaozhi mcp2xiaozhi.exe
 
 ➡️ 完整指南（配置与密钥、多服务、日志、升级）：[部署文档](https://stanleychanh.github.io/MCP2Xiaozhi/deployment/)。
 
-## 与官方 `mcp-calculator` 演示的区别
-
-| | `mcp-calculator` 演示 | `mcp2xiaozhi` |
-|---|---|---|
-| 传输 | stdio 直接；sse/http 通过 `mcp-proxy` 子进程 | 三种全部通过 `mcp` SDK 原生支持 |
-| 帧处理 | 字节管道透传 | 协议级：解析 → 校验 → 重新序列化（感知 `SessionMessage`） |
-| 打包 | 单个脚本 | PyPI 包，CLI，src 布局 |
-| 重连 | 每服务端退避 | 每桥退避带抖动 + 区分正常/异常关闭 |
-| 多服务 | 全部共享一个 endpoint | 每服务端独立 endpoint 并警告冲突 |
-| 错误处理 | 抛异常 + 重连 | 丢弃畸形帧；结构化的异常组解包 |
-
 ## 开发
 
 ```bash
