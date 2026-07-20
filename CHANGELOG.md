@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-20
+
 ### Fixed
 - **stdio transport now always inherits the full parent environment** (`os.environ`) for spawned MCP servers. Previously, when a server had no `env` block, `env=None` was passed to the SDK, which substitutes a small whitelist default (`DEFAULT_INHERITED_ENV_VARS` — only `PATH`/`HOME` etc.) and silently dropped app-specific variables (e.g. `BABY_*`). The `if server.env` guard is removed; `os.environ` is always layered under any server-specific overrides.
 
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UTF-8 console handling on Windows; graceful `SIGINT`/`SIGTERM` shutdown.
 - Test suite, ruff + mypy config, and CI workflow.
 
-[Unreleased]: https://github.com/StanleyChanH/MCP2Xiaozhi/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/StanleyChanH/MCP2Xiaozhi/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/StanleyChanH/MCP2Xiaozhi/releases/tag/v0.2.1
 [0.2.0]: https://github.com/StanleyChanH/MCP2Xiaozhi/releases/tag/v0.2.0
 [0.1.0]: https://github.com/StanleyChanH/MCP2Xiaozhi/releases/tag/v0.1.0
