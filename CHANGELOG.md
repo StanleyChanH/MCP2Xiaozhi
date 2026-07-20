@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **stdio transport now always inherits the full parent environment** (`os.environ`) for spawned MCP servers. Previously, when a server had no `env` block, `env=None` was passed to the SDK, which substitutes a small whitelist default (`DEFAULT_INHERITED_ENV_VARS` — only `PATH`/`HOME` etc.) and silently dropped app-specific variables (e.g. `BABY_*`). The `if server.env` guard is removed; `os.environ` is always layered under any server-specific overrides.
+
 ## [0.2.0] - 2026-07-10
 
 ### Added

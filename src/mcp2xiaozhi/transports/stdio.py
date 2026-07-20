@@ -29,13 +29,14 @@ class StdioTransport(McpTransport):
         super().__init__(server)
         if not server.command:
             raise ValueError("stdio transport requires a 'command'")
-        # Merge the current environment with any server-specific overrides so
-        # PATH and other essentials are preserved (matching the official demo).
-        env: dict[str, str] | None = None
-        if server.env:
-            env = dict(os.environ)
-            for k, v in server.env.items():
-                env[str(k)] = str(v)
+        # Always inherit the FULL parent environment so the child MCP server
+        # sees PATH plus any app-specific vars (e.g. BABY_*). Do NOT rely on
+        # StdioServerParameters(env=None): the SDK substitutes a small whitelist
+        # default (only DEFAULT_INHERITED_ENV_VARS like PATH/HOME), silently
+        # dropping everything else the parent process has set.
+        env = dict(os.environ)
+        for k, v in (server.env or {}).items():
+            env[str(k)] = str(v)
         self._params = StdioServerParameters(
             command=server.command,
             args=list(server.args),
@@ -46,7 +47,7 @@ class StdioTransport(McpTransport):
             self.name,
             self._params.command,
             self._params.args,
-            list(server.env.keys()) if server.env else [],
+            list((server.env or {}).keys()),
         )
 
     @asynccontextmanager

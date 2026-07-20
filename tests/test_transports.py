@@ -49,8 +49,11 @@ def test_stdio_transport_merges_env(monkeypatch):
     assert env["CHILD_VAR"] == "2"
 
 
-def test_stdio_transport_inherits_env_when_none(monkeypatch):
+def test_stdio_transport_always_inherits_parent_env(monkeypatch):
     monkeypatch.setenv("PARENT_VAR", "1")
     t = StdioTransport(_server(name="f", type="stdio", command="python"))
-    # When no server env is provided, we let the SDK inherit the environment.
-    assert t._params.env is None
+    # No server env block, yet the child must STILL inherit os.environ. The
+    # SDK's env=None only passes a whitelist (DEFAULT_INHERITED_ENV_VARS),
+    # dropping app vars like BABY_* — so we always pass dict(os.environ).
+    assert t._params.env is not None
+    assert t._params.env["PARENT_VAR"] == "1"
